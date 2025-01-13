@@ -1,61 +1,135 @@
 #!/bin/sh
-
-eth0.serverip=
+machine=iaoc
 user=
+
+ia_config_partnumber=840-0004-01
+ia_config_revision=C
+
 
 # use 'dhcp' to do dhcp in barebox and in kernel
 # use 'none' if you want to skip kernel ip autoconfiguration
 ip=dhcp
+dhcp_vendor_id=barebox
 
 # or set your networking parameters here
-#eth0.ipaddr=a.b.c.d
-#eth0.netmask=a.b.c.d
-#eth0.gateway=a.b.c.d
-#eth0.serverip=a.b.c.d
+#eth0.ipaddr=192.168.1.78
+#eth0.netmask=255.255.255.0
+#eth0.gateway=192.168.1.1
+#eth0.serverip=192.168.1.55
 
-# can be either 'nfs', 'tftp', 'nor' or 'nand'
+# This will set up the Android IP address information
+#user_ip=192.168.1.235
+#user_netmask_bits_hex=0x18
+#user_ip_override=0
+#user_gateway=192.168.1.1
+#user_dns1=8.8.8.8
+#user_dns2=8.8.8.4
+#use_second_interface=1
+
+# can be either 'tftp', 'nfs', 'nand', 'nor' or 'disk'
 kernel_loc=tftp
-# can be either 'net', 'nor', 'nand' or 'initrd'
+# can be either 'net', 'nand', 'nor', 'disk' or 'initrd'
 rootfs_loc=net
 
-# can be either 'jffs2' or 'ubifs'
+# for flash based rootfs: 'jffs2' or 'ubifs'
+# in case of disk any regular filesystem like 'ext2', 'ext3', 'reiserfs'
 rootfs_type=ubifs
-rootfsimage=root-${global.hostname}.$rootfs_type
+# where is the rootfs in case of 'rootfs_loc=disk' (linux name)
+rootfs_part_linux_dev=mmcblk0p4
+rootfsimage=rootfs-${machine}.$rootfs_type
 
-kernelimage=zImage-${global.hostname}
-#kernelimage=uImage-${global.hostname}
-#kernelimage=Image-${global.hostname}
-#kernelimage=Image-${global.hostname}.lzo
+# where is the kernel image in case of 'kernel_loc=disk'
+kernel_part=disk0.2
+
+kernelimage=uImage-$machine
+
+bareboximage=barebox-${machine}.bin
+bareboxenvimage=barebox-${machine}.bin
 
 if [ -n $user ]; then
-	kernelimage="$user"-"$kernelimage"
-	nfsroot="$eth0.serverip:/home/$user/nfsroot/${global.hostname}"
-	rootfsimage="$user"-"$rootfsimage"
+        bareboximage="$user"-"$bareboximage"
+        bareboxenvimage="$user"-"$bareboxenvimage"
+        kernelimage="$user"-"$kernelimage"
+        rootfsimage="$user"-"$rootfsimage"
+        nfsroot="/home/$user/nfsroot/$machine"
 else
-	nfsroot="$eth0.serverip:/path/to/nfs/root"
+        nfsroot="/srv/nfs4/"
 fi
-
 autoboot_timeout=3
 
-bootargs="console=ttyO2,115200"
+# Set the generic panel name. This can get overwritten by the fpga_config function
+panel_name="panel_generic_dpi.name=generic_720p60"
 
-nand_parts="128k(xload)ro,512k(barebox),128k(bareboxenv),4M(kernel),4M(splash),-(root)"
+# Override the IP address and panel name configurations from the
+# SPI FPGA registers
+###fpga_config
+
+bootargs="console=ttyO2,115200 omaplfb.debug=1 init=/init vram=32M omapfb.vram=0:16M,1:16M"
+
+nand_parts="128k(xload)ro,512k(barebox),128k(bareboxenv),10M(kernel),128k(configuration_data),-(root)"
 nand_device="omap2-nand.0"
 rootfs_mtdblock_nand=5
 
-#Displays
-# Splashscreen-Display can be either '', 'pd050vl1', 'pm070wl4', 'pd104slf', 'g104x1'
-# 'edt_etm0350G0dh6', 'edt_etm0430G0dh6', 'edt_etmv570G2dhu' or 'edt_etm0700G0dh6'
-# to use dvi output in kernel set 'display=dvi' and
-# dvi_resolution to '640x480-60' '800x600-60' or '1024x768-60'
+#bootargs="$bootargs panel_generic_dpi.name=pm070wl4"
 
-display=edt_etm0700G0dh6
-#dvi_resolution=1024x768-60
+# If you have a pm070wl4 LCD display, also uncomment the following line
+#bootargs="$bootargs stmpe_ts.inverty=1"
 
-if [ -n ${global.displayargs} ]; then
-	bootargs="$bootargs ${global.displayargs}"
-fi
+#bootargs="$bootargs panel_generic_dpi.name=generic_720p"
+#bootargs="$bootargs panel_generic_dpi.name=generic_1080p"
+bootargs="$bootargs $panel_name"
+bootargs="$bootargs omapdss.def_disp=dpi"
+
+# Always select HDMI output
+#bootargs="$bootargs omapdss.def_disp=hdmi"
+
+# Audio (deprecated by configuration caching in nand)
+#bootargs="$bootargs audio_output=spdif"
+#bootargs="$bootargs audio_output=rca"
+
+# Select your resolution (deprecated by configuration caching in nand)
+#bootargs="$bootargs omapfb.mode=hdmi:640x480@59"
+#bootargs="$bootargs omapfb.mode=hdmi:800x600@60"
+#bootargs="$bootargs omapfb.mode=hdmi:1024x768@60"
+#bootargs="$bootargs omapfb.mode=hdmi:1280x1024@60"
+#bootargs="$bootargs omapfb.mode=hdmi:1280x720@60"
+#bootargs="$bootargs omapfb.mode=hdmi:1920x1080@60"
+#bootargs="$bootargs omapfb.mode=hdmi:720x480@60"
+
+# For NTSC CVBS output
+#bootargs="$bootargs tv_format=ntsc omapfb.mode=hdmi:720x480@60"
+
+bootargs="$bootargs ia_config_partnumber=$ia_config_partnumber$ia_config_revision"
+
+# New IP configuration
+bootargs="$bootargs user_ip=$user_ip user_netmask_bits_hex=$user_netmask_bits_hex force_user_ip=$user_ip_override user_dns1=$user_dns_1 user_dns2=$user_dns_2 user_gateway=$user_gateway"
+bootargs="$bootargs ia_use_second_ip=$use_second_interface ia_ip=$eth0.ipaddr ia_netmask=$eth0.netmask ia_gateway=$eth0.gateway"
+
+# NTP Server setup
+bootargs="$bootargs ntp_server=$ntp_server"
+
+# Device name setup
+bootargs="$bootargs ia_dev_name=$device_name"
+
+# Vector file part number
+bootargs="$bootargs ia_vec_part=$vector_part"
+
+# Barebox environment part number
+bootargs="$bootargs barebox_env_part=$barebox_env_part"
+
+eccdev=gpmc_nand0
+xload_eccmode=bch8_hw_romcode
+barebox_eccmode=bch8_hw
+bareboxenv_eccmode=bch8_hw
+kernel_eccmode=bch8_hw
+root_eccmode=bch8_hw
 
 # set a fancy prompt (if support is compiled in)
 PS1="\e[1;32mbarebox@\e[1;31m\h:\w\e[0m "
+umlo="update -t xload -d nand -m tftp -f mlo"
+ubb="update -t barebox -d nand -m tftp -f barebox"
+uenv="update -t bareboxenv -d nand -m tftp -f bareboxenv"
+uk="update -t kernel -d nand -m tftp -f uImage"
+ufs="update -t rootfs -d nand -m tftp -f rootfs"
+ucfg="tftp config config && rm env/config && cp config env/config && rm config && saveenv"
 

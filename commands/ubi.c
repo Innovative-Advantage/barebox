@@ -15,78 +15,103 @@
 #include <mtd/ubi-user.h>
 #include <mtd/ubi-media.h>
 
-static int do_ubiupdatevol(int argc, char *argv[])
-{
-	int count, fd_img, fd_vol, ret = 0;
-	uint64_t size = 0;
-	struct stat st;
-	void *buf;
+static int do_ubiupdatevol(int argc, char *argv[]) {
+    int count, fd_img = -1, fd_vol, ret = 0;
+    uint64_t size = 0, offset = 0;
+    struct stat st;
+    void *buf;
 
-	if (argc - optind < 2)
-		return COMMAND_ERROR_USAGE;
+    if (argc - optind < 2) {
+        printf("Usage: %s <volume> <image>\n", argv[0]);
+        return COMMAND_ERROR_USAGE;
+    }
 
-	if (stat(argv[optind + 1], &st)) {
-		perror("stat image");
-		return 1;
-	}
+    // Open UBI volume
+    fd_vol = open(argv[optind], O_WRONLY | O_TRUNC);
+    if (fd_vol < 0) {
+        perror("Error opening UBI volume");
+        return 1;
+    }
 
-	size = st.st_size;
+    // Handle image file
+    if (strcmp(argv[optind + 1], "-") == 0) {
+        // Use stdin for image
+        fd_img = STDIN_FILENO;
+        size = 0; // Size unknown for stdin
+    } else {
+        // Use a regular file for image
+        if (stat(argv[optind + 1], &st)) {
+            perror("Error getting file size (stat)");
+            ret = 1;
+            goto error_vol;
+        }
 
-	if (size == FILESIZE_MAX) {
-		printf("%s has unknown filesize, this is not supported\n",
-		       argv[optind + 1]);
-		return 1;
-	}
+        size = st.st_size;
 
-	fd_img  = open(argv[optind + 1], O_RDONLY);
-	if (fd_img < 0) {
-		perror("open image");
-		return 1;
-	}
+        if (size == FILESIZE_MAX) {
+            printf("Image file %s has unknown size, not supported\n", argv[optind + 1]);
+            ret = 1;
+            goto error_vol;
+        }
 
-	fd_vol = open(argv[optind], O_WRONLY | O_TRUNC);
-	if (fd_vol < 0) {
-		perror("open volume");
-		ret = 1;
-		goto error_img;
-	}
+        fd_img = open(argv[optind + 1], O_RDONLY);
+        if (fd_img < 0) {
+            perror("Error opening image file");
+            ret = 1;
+            goto error_vol;
+        }
+    }
 
-	ret = ioctl(fd_vol, UBI_IOCVOLUP, &size);
-	if (ret) {
-		printf("failed to start update: %s\n", strerror(-ret));
-		goto error;
-	}
+    // Start UBI volume update if size is known
+    if (size > 0) {
+        ret = ioctl(fd_vol, UBI_IOCVOLUP, &size);
+        if (ret) {
+            printf("Failed to start update: %s\n", strerror(errno));
+            goto error_img;
+        }
+    }
 
-	buf = xmalloc(RW_BUF_SIZE);
+    // Allocate buffer
+    buf = xmalloc(RW_BUF_SIZE);
 
-	while (size) {
+    // Read from image and write to volume
+    while (1) {
+        count = read(fd_img, buf, RW_BUF_SIZE);
+        if (count < 0) {
+            perror("Error reading image file");
+            ret = 1;
+            break;
+        }
+        if (count == 0) {
+            break; // EOF
+        }
 
-		count = read(fd_img, buf, RW_BUF_SIZE);
-		if (count < 0) {
-			perror("read");
-			ret = 1;
-			break;
-		}
+        offset = 0;
+        while (count > 0) {
+            int written = write(fd_vol, buf + offset, count);
+            if (written < 0) {
+                perror("Error writing to volume");
+                ret = 1;
+                break;
+            }
+            offset += written;
+            count -= written;
+        }
 
-		count = write(fd_vol, buf, count);
-		if (count < 0) {
-			perror("write");
-			ret = 1;
-			break;
-		}
+        if (ret) break;
 
-		size -= count;
-	}
+        if (size > 0) size -= offset; // Decrease remaining size if known
+    }
 
-	free(buf);
+    free(buf);
 
-error:
-	close(fd_vol);
 error_img:
-	close(fd_img);
-	return ret ? 1 : 0;
+    if (fd_img != STDIN_FILENO)
+        close(fd_img);
+error_vol:
+    close(fd_vol);
+    return ret;
 }
-
 
 BAREBOX_CMD_HELP_START(ubiupdatevol)
 BAREBOX_CMD_HELP_TEXT("Update UBI volume with an image.")

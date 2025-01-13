@@ -1,0 +1,24 @@
+BACKGROUND
+==========
+
+This barebox bootloader is based on the version maintained by bootlin, it is the most upto date barebox that still supports the Phytec OMAP44xx platformi that I could find.
+It's been modified to not use the persistent /env storage for scripts but instead use the built-in defaults, which have been modified for this purpose.
+
+It requests IP addres,subnet etc via DHCP and then TFTP a kernel image [uImage-iaoc] and device tree [oftree] which it then uses to boot up Linux.
+Linux is configured with the NAND partitions suitable for an Airmont G/W and a rootfs via NFS
+
+The boot command is effectively: boot -m tftp -k tftp -r net -i dhcp -o tftp
+
+Based on https://git.pengutronix.de/git/barebox branch: v2022.12.0
+Homepage: https://bootlin.com/engineering/linux-board-support-package/
+
+TOOLCHAIN
+=========
+
+I used the ARM Developer GNU Toolchain v10.3.2021.10 [https://developer.arm.com/downloads/-/gnu-rm/10-3-2021-10]
+
+BUILD
+=====
+make CROSS_COMPILE=arm-none-eabi- ARCH=arm phytec-phycore-omap4460_defconfig
+make CROSS_COMPILE=arm-none-eabi- ARCH=arm
+

@@ -392,6 +392,10 @@ int copy_file(const char *src, const char *dst, int verbose)
 		goto out;
 	}
 
+if (strcmp(dst, "-") == 0) {
+    // Destination is stdout
+    dstfd = STDOUT_FILENO;
+} else {
 	mode = O_WRONLY | O_CREAT;
 
 	s = stat(dst, &dststat);
@@ -406,6 +410,7 @@ int copy_file(const char *src, const char *dst, int verbose)
 		mode |= O_TRUNC;
 
 	dstfd = open(dst, mode);
+}
 	if (dstfd < 0) {
 		printf("could not open %s: %m\n", dst);
 		ret = dstfd;
@@ -416,7 +421,7 @@ int copy_file(const char *src, const char *dst, int verbose)
 	if (ret)
 		goto out;
 
-	if (srcstat.st_size != FILESIZE_MAX) {
+	if (dstfd != STDOUT_FILENO && srcstat.st_size != FILESIZE_MAX) {
 		discard_range(dstfd, srcstat.st_size, 0);
 		if (s || S_ISREG(dststat.st_mode)) {
 			ret = ftruncate(dstfd, srcstat.st_size);
@@ -425,7 +430,7 @@ int copy_file(const char *src, const char *dst, int verbose)
 		}
 	}
 
-	if (verbose)
+	if (dstfd != STDOUT_FILENO && verbose)
 		init_progression_bar(srcstat.st_size);
 
 	while (1) {
