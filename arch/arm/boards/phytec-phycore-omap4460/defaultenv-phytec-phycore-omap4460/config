@@ -8,14 +8,14 @@ ia_config_revision=C
 
 # use 'dhcp' to do dhcp in barebox and in kernel
 # use 'none' if you want to skip kernel ip autoconfiguration
-ip=dhcp
-dhcp_vendor_id=barebox
+#ip=dhcp
+#dhcp_vendor_id=barebox
 
 # or set your networking parameters here
-#eth0.ipaddr=192.168.1.78
-#eth0.netmask=255.255.255.0
-#eth0.gateway=192.168.1.1
-#eth0.serverip=192.168.1.55
+eth0.ipaddr=10.4.0.2
+eth0.netmask=255.0.0.0
+eth0.gateway=10.0.0.1
+eth0.serverip=10.100.0.10
 
 # This will set up the Android IP address information
 #user_ip=192.168.1.235
