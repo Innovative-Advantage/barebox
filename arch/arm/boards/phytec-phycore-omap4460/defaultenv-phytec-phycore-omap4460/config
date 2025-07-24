@@ -64,7 +64,7 @@ panel_name="panel_generic_dpi.name=generic_720p60"
 # SPI FPGA registers
 ###fpga_config
 
-bootargs="console=ttyO2,115200 omaplfb.debug=1 init=/init vram=32M omapfb.vram=0:16M,1:16M"
+bootargs="console=ttyO2,115200 omaplfb.debug=1 init=/sbin/init vram=32M omapfb.vram=0:16M,1:16M"
 
 nand_parts="128k(xload)ro,512k(barebox),128k(bareboxenv),10M(kernel),128k(configuration_data),-(root)"
 nand_device="omap2-nand.0"
