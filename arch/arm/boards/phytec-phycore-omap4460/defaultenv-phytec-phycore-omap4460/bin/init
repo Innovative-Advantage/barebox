@@ -38,6 +38,6 @@ elif [ -n $autoboot_timeout ]; then
                 exit
         fi
 
-	/env/bin/boot -m tftp -k tftp -r net -i dhcp -o tftp
+	/env/bin/boot -m tftp -k tftp -r net -i dhcp-barebox -o tftp
 fi
 
