@@ -16,6 +16,7 @@ eth0.ipaddr=10.4.0.2
 eth0.netmask=255.0.0.0
 eth0.gateway=10.0.0.1
 eth0.serverip=10.100.0.11
+eth0.mode=static
 
 # This will set up the Android IP address information
 #user_ip=192.168.1.235
